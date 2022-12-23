@@ -12,7 +12,7 @@ import { HttpParams } from '@angular/common/http';
     providedIn: 'root'
 })
 export class ApiService {
-    apiURL:string = "http://localhost:8080/"
+    apiURL:string = "http://localhost:8080/";
     constructor(
         private httpc: HttpClient,
     ) { }
@@ -22,9 +22,11 @@ export class ApiService {
         return this.httpc.get<any>(req_url).toPromise();
     }
 
-    public addNewRecordAsync<T>(tentity: T, urlstr: string): Promise<any> {
+    public addNewRecordAsync<T>(body: T, urlstr: string): Promise<any> {
+        console.log(typeof(body));
+        const headers = new HttpHeaders().set('Content-Type', 'application/json; charset=utf-8');
         const finurl = this.apiURL + urlstr;
-        return this.httpc.post<any>(finurl, tentity).toPromise();
+        return this.httpc.post<any>(finurl, body,{headers: headers}).toPromise();
     }
 
     public updateRecordAsync<T>(tentity: T, urlstr: string): Promise<any> {

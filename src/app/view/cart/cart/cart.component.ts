@@ -13,11 +13,14 @@ import { LocalStoreService } from 'src/app/shared/services/local-store.service';
 export class CartComponent implements OnInit {
   cartList:any = [];
   total:any ;
+  isSigned = false;
   signinLink:string = "/signin"
+  billID: any;
   constructor(
     private _ls: LocalStoreService,
     private router: Router,
     private _apiService: ApiService,   
+    private httpc: HttpClient,
   ) { }
 
   ngOnInit(): void {
@@ -56,6 +59,10 @@ export class CartComponent implements OnInit {
   }
 
   getCartList(){
+    if(this._ls.getLocalItem("Customer")){
+      this.isSigned = true;
+    }
+
     this.cartList = JSON.parse(this._ls.getLocalItem('Cart'));
   }
 
@@ -65,17 +72,72 @@ export class CartComponent implements OnInit {
     this._ls.setLocalItem('Cart', JSON.stringify(this.cartList));
   }
 
-  // async checkout(){
-  //   if(!this._ls.getLocalItem("Customer")){
-  //     this.router.navigate([this.signinLink]);
-  //     return;
-  //   } 
+  async checkout(){
+    if(!this._ls.getLocalItem("Cart")){
+      alert("No Item In Cart");
+      return;
+    }
 
-  //   await this._apiService
-  //     .addNewRecordAsync(`products`)
-  //     .then((res) => {
-  //       console.log(res);
-              
-  //     })
-  // }
+    if(!this._ls.getLocalItem("Customer")){
+      this.router.navigate([this.signinLink]);
+      return;
+    } 
+    let customerID = JSON.parse(this._ls.getLocalItem('Customer')).customer_id;
+    let totalPrice = this.total + 10;
+    let date = new Date();
+	  let current_date =  date.getDate()+"-"+(date.getMonth()+1)+"-"+date.getFullYear();  
+
+    let bodyBill: any = {
+      customerID: customerID.toString(),
+      totalPrice: totalPrice.toString(),
+      date: current_date
+    };
+  
+    await this._apiService
+      .addNewRecordAsync(bodyBill,`bill`)
+      .then((res) => {
+        this.billID = res.billID;
+      });
+
+    await this.cartList.forEach(cartItem => {
+      this.addBilldetail(cartItem)
+    });
+
+    this._ls.removeLocalItem('Cart');
+    this.cartList = [];
+  }
+
+  async addBilldetail(value){
+    let bodyBilldetail: any = {
+      billID: this.billID.toString(),
+      productID: value.cartItem.productID.toString(),
+      quantity: value.amount
+    };
+
+    let bodyProduct: any = {
+      productID : value.cartItem.productID.toString(),
+      amount:   (value.cartItem.amount - value.amount).toString(),
+      categoryID: value.cartItem.categoryID.toString(),
+      price:  value.cartItem.price.toString(),
+      productName: value.cartItem.productName,
+      productImg: value.cartItem.productImg,
+    };
+
+    await this._apiService
+    .addNewRecordAsync(bodyBilldetail,`billdetail`)
+    .then((res) => {
+      console.log(res);
+    });
+
+    await this._apiService
+      .updateRecordAsync(bodyProduct,`products/`+value.cartItem.productID.toString())
+      .then((res) => {
+        console.log(res);
+      });
+  }
+
+  logout(){
+    this._ls.removeLocalItem("Customer");
+    this.isSigned = false;
+  }
 }
